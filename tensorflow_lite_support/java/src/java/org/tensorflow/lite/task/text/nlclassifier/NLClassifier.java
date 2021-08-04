@@ -23,8 +23,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.tensorflow.lite.annotations.UsedByReflection;
 import org.tensorflow.lite.support.label.Category;
+import org.tensorflow.lite.task.core.BaseOptions;
 import org.tensorflow.lite.task.core.BaseTaskApi;
 import org.tensorflow.lite.task.core.TaskJniUtils;
 import org.tensorflow.lite.task.core.TaskJniUtils.EmptyHandleProvider;
@@ -78,6 +80,7 @@ public class NLClassifier extends BaseTaskApi {
     private static final String DEFAULT_INPUT_TENSOR_NAME = "INPUT";
     private static final String DEFAULT_OUTPUT_SCORE_TENSOR_NAME = "OUTPUT_SCORE";
     private static final String DEFAULT_OUTPUT_LABEL_TENSOR_NAME = "OUTPUT_LABEL";
+    private static final boolean DEFAULT_BASE_OPTIONS_IS_CONFIGURED = false;
 
     @UsedByReflection("nl_classifier_jni.cc")
     abstract int getInputTensorIndex();
@@ -97,6 +100,9 @@ public class NLClassifier extends BaseTaskApi {
     @UsedByReflection("nl_classifier_jni.cc")
     abstract String getOutputLabelTensorName();
 
+    @Nullable
+    abstract BaseOptions getBaseOptions();
+
     public static Builder builder() {
       return new AutoValue_NLClassifier_NLClassifierOptions.Builder()
           .setInputTensorIndex(DEFAULT_INPUT_TENSOR_INDEX)
@@ -110,16 +116,38 @@ public class NLClassifier extends BaseTaskApi {
     /** Builder for {@link NLClassifierOptions}. */
     @AutoValue.Builder
     public abstract static class Builder {
+      /**
+       * Sets the general options to configure Task APIs, such as accelerators.
+       *
+       * <p>Note: this method will reset the configuration passed from the following method:
+       *
+       * <ul>
+       *   <li>{@link #setInputTensorIndex}
+       *   <li>{@link #setOutputScoreTensorIndex}
+       *   <li>{@link #setOutputLabelTensorIndex}
+       *   <li>{@link #setInputTensorName}
+       *   <li>{@link #setOutputScoreTensorName}
+       *   <li>{@link #setOutputLabelTensorName}
+       * </ul>
+       */
+      public abstract Builder setBaseOptions(@Nullable BaseOptions baseOptions);
+
+      @Deprecated
       public abstract Builder setInputTensorIndex(int value);
 
+      @Deprecated
       public abstract Builder setOutputScoreTensorIndex(int value);
 
+      @Deprecated
       public abstract Builder setOutputLabelTensorIndex(int value);
 
+      @Deprecated
       public abstract Builder setInputTensorName(String value);
 
+      @Deprecated
       public abstract Builder setOutputScoreTensorName(String value);
 
+      @Deprecated
       public abstract Builder setOutputLabelTensorName(String value);
 
       public abstract NLClassifierOptions build();
@@ -192,7 +220,11 @@ public class NLClassifier extends BaseTaskApi {
               new EmptyHandleProvider() {
                 @Override
                 public long createHandle() {
-                  return initJniWithFileDescriptor(options, descriptor.getFd());
+                  long baseOptionsHandle =
+                      options.getBaseOptions() == null
+                          ? 0 // pass an invalid native handle
+                          : TaskJniUtils.createProtoBaseOptionsHandle(options.getBaseOptions());
+                  return initJniWithFileDescriptor(options, descriptor.getFd(), baseOptionsHandle);
                 }
               },
               NL_CLASSIFIER_NATIVE_LIBNAME));
@@ -215,12 +247,17 @@ public class NLClassifier extends BaseTaskApi {
       throw new IllegalArgumentException(
           "The model buffer should be either a direct ByteBuffer or a MappedByteBuffer.");
     }
+
     return new NLClassifier(
         TaskJniUtils.createHandleFromLibrary(
             new EmptyHandleProvider() {
               @Override
               public long createHandle() {
-                return initJniWithByteBuffer(options, modelBuffer);
+                long baseOptionsHandle =
+                    options.getBaseOptions() == null
+                        ? 0 // pass an invalid native handle
+                        : TaskJniUtils.createProtoBaseOptionsHandle(options.getBaseOptions());
+                return initJniWithByteBuffer(options, modelBuffer, baseOptionsHandle);
               }
             },
             NL_CLASSIFIER_NATIVE_LIBNAME));
@@ -237,9 +274,10 @@ public class NLClassifier extends BaseTaskApi {
   }
 
   private static native long initJniWithByteBuffer(
-      NLClassifierOptions options, ByteBuffer modelBuffer);
+      NLClassifierOptions options, ByteBuffer modelBuffer, long baseOptionsHandle);
 
-  private static native long initJniWithFileDescriptor(NLClassifierOptions options, int fd);
+  private static native long initJniWithFileDescriptor(
+      NLClassifierOptions options, int fd, long baseOptionsHandle);
 
   private static native List<Category> classifyNative(long nativeHandle, String text);
 
