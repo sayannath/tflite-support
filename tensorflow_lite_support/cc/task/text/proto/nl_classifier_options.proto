@@ -20,9 +20,71 @@ package tflite.task.text;
 import "tensorflow_lite_support/cc/task/core/proto/base_options.proto";
 
 // Options for setting up an NLClassifier.
-// Next Id: 2
+// Next Id: 8
 message NLClassifierOptions {
   // Base options for configuring NLClassifier, such as specifying the
   // TfLite model file with metadata, accelerator options, etc.
   optional tflite.task.core.BaseOptions base_options = 1;
+
+  // Name of the input text tensor, if the model has multiple inputs. Only the
+  // input tensor specified will be used for inference; other input tensors will
+  // be ignored. Dafualt to "INPUT".
+  //
+  // If no input tensor under `input_tensor_name` is found, `input_tensor_index`
+  // will be used to locate the input tensor instead.
+  optional string input_tensor_name = 2 [default = "INPUT"];
+
+  // Name of the output score tensor, if the model has multiple outputs. Dafualt
+  // to "OUTPUT_SCORE".
+  //
+  // If no input tensor under `output_score_tensor_name` is found,
+  // `output_score_tensor_index` will be used to locate the output score tensor
+  // instead.
+  optional string output_score_tensor_name = 3 [default = "OUTPUT_SCORE"];
+
+  // Name of the output label tensor, if the model has multiple outputs. Dafualt
+  // to "OUTPUT_LABEL".
+  //
+  // If no input tensor under `output_label_tensor_name` is found,
+  // `output_label_tensor_index` will be used to locate the output label tensor
+  // instead.
+  //
+  // By default, label file should be packed with
+  // the output score tensor through Model Metadata. See the MetadataWriter for
+  // NLClassifier [1]. NLClassifier reads and parses labels from the label
+  // file automatically. However, some models may output a specific label tensor
+  // instead. In this case, NLClassifier reads labels from the output label
+  // tensor.
+  //
+  // [1]:
+  // https://www.tensorflow.org/lite/convert/metadata_writer_tutorial#natural_language_classifiers
+  optional string output_label_tensor_name = 4 [default = "OUTPUT_LABEL"];
+
+  // Index of the input text tensor among all input tensors, if the model has
+  // multiple inputs. Only the input tensor specified will be used for
+  // inference; other input tensors will be ignored. Dafualt to 0.
+  //
+  // `input_tensor_name` has higher priority than `input_tensor_index` when
+  // locating the input tensor.
+  optional int32 input_tensor_index = 5 [default = 0];
+
+  // Index of the output score tensor among all output tensors, if the model has
+  // multiple outputs. Dafualt to 0.
+  //
+  // `output_score_tensor_name` has higher priority than
+  // `output_score_tensor_index` when locating the output score tensor.
+  optional int32 output_score_tensor_index = 6 [default = 0];
+
+  // Index of the optional output label tensor among all output tensors, if the
+  // model has multiple outputs.
+  //
+  // See the comment above `output_label_tensor_name` for more information about
+  // what the output label tensor is.
+  //
+  // `output_label_tensor_name` has higher priority than
+  // `output_label_tensor_index` when locating the output label tensor.
+  //
+  // `output_label_tensor_index` dafualts to -1, meaning to disable the
+  // output label tensor.
+  optional int32 output_label_tensor_index = 7 [default = -1];
 }
